@@ -21,15 +21,6 @@ public class PedidoService {
   )
   private EntityManager entityManager;
 
-  /**
-   * Registra un nuevo pedido en el sistema.
-   *
-   * @param cliente    Nombre del cliente que realiza el pedido.
-   * @param productoId ID del producto que se desea comprar.
-   * @param cantidad   Cantidad de productos a comprar.
-   * @return El pedido registrado.
-   * @throws IllegalArgumentException Si alguno de los parámetros es inválido o si el producto no existe.
-   */
   @TransactionAttribute(
       TransactionAttributeType.REQUIRED
   )
@@ -53,12 +44,17 @@ public class PedidoService {
       throw new IllegalArgumentException("El producto no existe.");
     }
 
-    // REGLA DE NEGOCIO
     producto.descontarStock(cantidad);
 
-    BigDecimal total = producto.getPrecio().multiply(BigDecimal.valueOf(cantidad));
+    BigDecimal total = producto.getPrecio()
+        .multiply(BigDecimal.valueOf(cantidad));
 
-    Pedido pedido = new Pedido(cliente.trim(), producto, cantidad, total);
+    Pedido pedido = new Pedido(
+        cliente.trim(),
+        producto,
+        cantidad,
+        total
+    );
 
     entityManager.persist(pedido);
 
@@ -66,15 +62,142 @@ public class PedidoService {
   }
 
   /**
-   * Lista todos los productos disponibles en el sistema.
+   * Busca un pedido por su ID.
    *
-   * @return Lista de productos.
+   * @param pedidoId ID del pedido.
+   * @return El pedido encontrado o null si no existe.
    */
+  @TransactionAttribute(
+      TransactionAttributeType.SUPPORTS
+  )
+  public Pedido buscarPedido(Long pedidoId) {
+    if (pedidoId == null) {
+      return null;
+    }
+
+    return entityManager.find(Pedido.class, pedidoId);
+  }
+
+  /**
+   * Actualiza un pedido y mantiene la consistencia del stock.
+   *
+   * @param pedidoId ID del pedido a actualizar.
+   * @param cliente Nuevo cliente.
+   * @param productoId Nuevo producto.
+   * @param cantidad Nueva cantidad.
+   * @return El pedido actualizado.
+   */
+  @TransactionAttribute(
+      TransactionAttributeType.REQUIRED
+  )
+  public Pedido actualizarPedido(
+      Long pedidoId,
+      String cliente,
+      Long productoId,
+      int cantidad) {
+
+    if (pedidoId == null) {
+      throw new IllegalArgumentException("El pedido es obligatorio.");
+    }
+
+    if (cliente == null ||
+        cliente.isBlank()) {
+      throw new IllegalArgumentException("El cliente es obligatorio.");
+    }
+
+    if (productoId == null) {
+      throw new IllegalArgumentException("Debe seleccionar un producto.");
+    }
+
+    if (cantidad <= 0) {
+      throw new IllegalArgumentException("La cantidad debe ser mayor que cero.");
+    }
+
+    Pedido pedido =
+        entityManager.find(Pedido.class, pedidoId);
+
+    if (pedido == null) {
+      throw new IllegalArgumentException("El pedido no existe.");
+    }
+
+    Producto productoAnterior =
+        pedido.getProducto();
+
+    int cantidadAnterior =
+        pedido.getCantidad();
+
+    Producto productoNuevo =
+        entityManager.find(Producto.class, productoId);
+
+    if (productoNuevo == null) {
+      throw new IllegalArgumentException("El producto no existe.");
+    }
+
+    if (productoAnterior.getId().equals(productoNuevo.getId())) {
+
+      productoAnterior.reponerStock(cantidadAnterior);
+      productoAnterior.descontarStock(cantidad);
+
+    } else {
+
+      productoAnterior.reponerStock(cantidadAnterior);
+      productoNuevo.descontarStock(cantidad);
+    }
+
+    BigDecimal total =
+        productoNuevo.getPrecio()
+            .multiply(BigDecimal.valueOf(cantidad));
+
+    pedido.actualizar(
+        cliente.trim(),
+        productoNuevo,
+        cantidad,
+        total
+    );
+
+    return pedido;
+  }
+
+  /**
+   * Elimina un pedido y repone la cantidad al stock.
+   *
+   * @param pedidoId ID del pedido a eliminar.
+   */
+  @TransactionAttribute(
+      TransactionAttributeType.REQUIRED
+  )
+  public void eliminarPedido(Long pedidoId) {
+
+    if (pedidoId == null) {
+      throw new IllegalArgumentException(
+          "El pedido es obligatorio."
+      );
+    }
+
+    Pedido pedido =
+        entityManager.find(Pedido.class, pedidoId);
+
+    if (pedido == null) {
+      throw new IllegalArgumentException(
+          "El pedido no existe."
+      );
+    }
+
+    Producto producto =
+        pedido.getProducto();
+
+    producto.reponerStock(
+        pedido.getCantidad()
+    );
+
+    entityManager.remove(pedido);
+  }
   @TransactionAttribute(
       TransactionAttributeType.REQUIRED
   )
   public List<Producto> listarProductos() {
     inicializarProductosSiEsNecesario();
+
     return entityManager
         .createQuery(
             """
@@ -87,11 +210,6 @@ public class PedidoService {
         .getResultList();
   }
 
-  /**
-   * Lista todos los pedidos realizados en el sistema.
-   *
-   * @return Lista de pedidos.
-   */
   @TransactionAttribute(
       TransactionAttributeType.SUPPORTS
   )
@@ -109,9 +227,6 @@ public class PedidoService {
         .getResultList();
   }
 
-  /**
-   * Inicializa algunos productos de ejemplo si no existen en la base de datos.
-   */
   private void inicializarProductosSiEsNecesario() {
     Long cantidad =
         entityManager

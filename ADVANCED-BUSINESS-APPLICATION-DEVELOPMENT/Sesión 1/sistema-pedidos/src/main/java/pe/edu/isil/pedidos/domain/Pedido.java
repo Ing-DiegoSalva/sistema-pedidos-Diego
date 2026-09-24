@@ -64,6 +64,12 @@ public class Pedido {
     this.total = total;
     this.fecha = LocalDateTime.now();
   }
+public void actualizar(String cliente, Producto producto, int cantidad, BigDecimal total) {
+  this.cliente = cliente;
+  this.producto = producto;
+  this.cantidad = cantidad;
+  this.total = total;
+}
 
   public Long getId() {
     return id;

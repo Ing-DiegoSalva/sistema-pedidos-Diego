@@ -71,8 +71,15 @@ public class Producto {
     if (cantidad > stock) {
       throw new IllegalStateException("Stock insuficiente. Disponible: " + stock);
     }
-
+	
     stock -= cantidad;
   }
+public void reponerStock(int cantidad) {
+    if (cantidad <= 0) {
+      throw new IllegalArgumentException("La cantidad debe ser mayor que cero.");
+    }
+
+    stock += cantidad;
+}
 
 }
