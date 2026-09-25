@@ -117,23 +117,14 @@ public class PedidoServlet extends HttpServlet {
         StandardCharsets.UTF_8.name()
     );
 
-    String action =
-        request.getParameter("action");
+    String action = request.getParameter("action");
 
     try {
 
-      /*
-       * Eliminación base mediante POST.
-       *
-       * Posteriormente se implementará DELETE HTTP
-       * mediante fetch() y doDelete().
-       */
       if ("eliminar".equals(action)) {
 
         Long pedidoId =
-            Long.valueOf(
-                request.getParameter("pedidoId")
-            );
+            Long.valueOf(request.getParameter("pedidoId"));
 
         pedidoService.eliminarPedido(pedidoId);
 
@@ -150,21 +141,15 @@ public class PedidoServlet extends HttpServlet {
           request.getParameter("cliente");
 
       Long productoId =
-          Long.valueOf(
-              request.getParameter("productoId")
-          );
+          Long.valueOf(request.getParameter("productoId"));
 
       int cantidad =
-          Integer.parseInt(
-              request.getParameter("cantidad")
-          );
+          Integer.parseInt(request.getParameter("cantidad"));
 
       if ("actualizar".equals(action)) {
 
         Long pedidoId =
-            Long.valueOf(
-                request.getParameter("pedidoId")
-            );
+            Long.valueOf(request.getParameter("pedidoId"));
 
         Pedido pedido =
             pedidoService.actualizarPedido(
@@ -211,8 +196,8 @@ public class PedidoServlet extends HttpServlet {
           null
       );
 
-    } catch (IllegalArgumentException |
-             IllegalStateException e) {
+    } catch (IllegalArgumentException
+             | IllegalStateException e) {
 
       response.setStatus(
           HttpServletResponse.SC_BAD_REQUEST
@@ -230,7 +215,89 @@ public class PedidoServlet extends HttpServlet {
   }
 
   /**
-   * Renderiza la página HTML.
+   * Maneja las solicitudes PUT para actualizar pedidos.
+   *
+   * PUT /pedidos
+   */
+  @Override
+  protected void doPut(
+      HttpServletRequest request,
+      HttpServletResponse response)
+      throws ServletException, IOException {
+
+    request.setCharacterEncoding(
+        StandardCharsets.UTF_8.name()
+    );
+
+    try {
+
+      Long pedidoId =
+          Long.valueOf(request.getParameter("pedidoId"));
+
+      String cliente =
+          request.getParameter("cliente");
+
+      Long productoId =
+          Long.valueOf(request.getParameter("productoId"));
+
+      int cantidad =
+          Integer.parseInt(request.getParameter("cantidad"));
+
+      Pedido pedido =
+          pedidoService.actualizarPedido(
+              pedidoId,
+              cliente,
+              productoId,
+              cantidad
+          );
+
+      response.setContentType(
+          "application/json;charset=UTF-8"
+      );
+
+      response.setStatus(
+          HttpServletResponse.SC_OK
+      );
+
+      response.getWriter().printf(
+          "{\"id\":%d,\"mensaje\":\"Pedido actualizado correctamente.\"}",
+          pedido.getId()
+      );
+
+    } catch (NumberFormatException e) {
+
+      response.setContentType(
+          "application/json;charset=UTF-8"
+      );
+
+      response.setStatus(
+          HttpServletResponse.SC_BAD_REQUEST
+      );
+
+      response.getWriter().print(
+          "{\"error\":\"Datos numéricos inválidos.\"}"
+      );
+
+    } catch (IllegalArgumentException
+             | IllegalStateException e) {
+
+      response.setContentType(
+          "application/json;charset=UTF-8"
+      );
+
+      response.setStatus(
+          HttpServletResponse.SC_BAD_REQUEST
+      );
+
+      response.getWriter().printf(
+          "{\"error\":\"%s\"}",
+          escapeHtml(e.getMessage())
+      );
+    }
+  }
+
+  /**
+   * Renderiza la página principal del sistema.
    */
   private void renderizarPagina(
       HttpServletResponse response,
@@ -251,8 +318,7 @@ public class PedidoServlet extends HttpServlet {
         "text/html;charset=UTF-8"
     );
 
-    try (PrintWriter out =
-        response.getWriter()) {
+    try (PrintWriter out = response.getWriter()) {
 
       out.println("""
           <!doctype html>
@@ -261,6 +327,7 @@ public class PedidoServlet extends HttpServlet {
             <meta charset="UTF-8">
             <meta name="viewport"
                   content="width=device-width, initial-scale=1">
+
             <title>Sistema de Pedidos - ISIL</title>
 
             <style>
@@ -285,7 +352,9 @@ public class PedidoServlet extends HttpServlet {
                 font-weight: 600;
               }
 
-              input, select, button {
+              input,
+              select,
+              button {
                 padding: 10px;
                 font-size: 14px;
               }
@@ -300,7 +369,8 @@ public class PedidoServlet extends HttpServlet {
                 margin-top: 24px;
               }
 
-              th, td {
+              th,
+              td {
                 border: 1px solid #ccc;
                 padding: 9px;
                 text-align: left;
@@ -375,8 +445,7 @@ public class PedidoServlet extends HttpServlet {
         );
       }
 
-      if (creado != null &&
-          !creado.isBlank()) {
+      if (creado != null && !creado.isBlank()) {
 
         out.printf(
             "<div class=\"success\">Pedido #%s registrado correctamente.</div>%n",
@@ -384,8 +453,7 @@ public class PedidoServlet extends HttpServlet {
         );
       }
 
-      if (actualizado != null &&
-          !actualizado.isBlank()) {
+      if (actualizado != null && !actualizado.isBlank()) {
 
         out.printf(
             "<div class=\"success\">Pedido #%s actualizado correctamente.</div>%n",
@@ -393,8 +461,7 @@ public class PedidoServlet extends HttpServlet {
         );
       }
 
-      if (eliminado != null &&
-          !eliminado.isBlank()) {
+      if (eliminado != null && !eliminado.isBlank()) {
 
         out.printf(
             "<div class=\"success\">Pedido #%s eliminado correctamente y stock repuesto.</div>%n",
@@ -402,12 +469,18 @@ public class PedidoServlet extends HttpServlet {
         );
       }
 
+      /*
+       * FORMULARIO DE EDICIÓN
+       *
+       * El formulario mantiene method="post" como respaldo,
+       * pero JavaScript intercepta el envío y realiza un PUT.
+       */
       if (pedidoEditar != null) {
 
         out.println("""
             <h2>Editar pedido</h2>
 
-            <form method="post">
+            <form id="pedidoEditForm" method="post">
 
               <input
                 type="hidden"
@@ -435,9 +508,7 @@ public class PedidoServlet extends HttpServlet {
 
         out.printf(
             "      value=\"%s\">%n",
-            escapeHtml(
-                pedidoEditar.getCliente()
-            )
+            escapeHtml(pedidoEditar.getCliente())
         );
 
         out.println("""
@@ -452,9 +523,7 @@ public class PedidoServlet extends HttpServlet {
 
           String selected =
               producto.getId().equals(
-                  pedidoEditar
-                      .getProducto()
-                      .getId()
+                  pedidoEditar.getProducto().getId()
               )
                   ? " selected"
                   : "";
@@ -463,11 +532,8 @@ public class PedidoServlet extends HttpServlet {
               "<option value=\"%d\"%s>%s - S/ %s - stock: %d</option>%n",
               producto.getId(),
               selected,
-              escapeHtml(
-                  producto.getNombre()
-              ),
-              producto.getPrecio()
-                  .toPlainString(),
+              escapeHtml(producto.getNombre()),
+              producto.getPrecio().toPlainString(),
               producto.getStock()
           );
         }
@@ -505,10 +571,72 @@ public class PedidoServlet extends HttpServlet {
                 Cancelar edición
               </a>
             </p>
+
+            <script>
+              const formularioEdicion =
+                  document.getElementById("pedidoEditForm");
+
+              formularioEdicion.addEventListener(
+                  "submit",
+                  async function(event) {
+
+                    event.preventDefault();
+
+                    const datos =
+                        new URLSearchParams(
+                            new FormData(formularioEdicion)
+                        );
+
+                    try {
+
+                      const respuesta =
+                          await fetch(
+                              window.location.pathname,
+                              {
+                                method: "PUT",
+                                headers: {
+                                  "Content-Type":
+                                      "application/x-www-form-urlencoded;charset=UTF-8"
+                                },
+                                body: datos
+                              }
+                          );
+
+                      const texto =
+                          await respuesta.text();
+
+                      if (!respuesta.ok) {
+                        throw new Error(
+                            texto ||
+                            "No se pudo actualizar el pedido."
+                        );
+                      }
+
+                      const resultado =
+                          JSON.parse(texto);
+
+                      window.location.href =
+                          window.location.pathname
+                          + "?actualizado="
+                          + encodeURIComponent(resultado.id);
+
+                    } catch (error) {
+
+                      alert(
+                          "Error al actualizar el pedido: "
+                          + error.message
+                      );
+                    }
+                  }
+              );
+            </script>
             """);
 
       } else {
 
+        /*
+         * FORMULARIO DE REGISTRO
+         */
         out.println("""
             <h2>Registrar pedido</h2>
 
@@ -538,11 +666,8 @@ public class PedidoServlet extends HttpServlet {
           out.printf(
               "<option value=\"%d\">%s - S/ %s - stock: %d</option>%n",
               producto.getId(),
-              escapeHtml(
-                  producto.getNombre()
-              ),
-              producto.getPrecio()
-                  .toPlainString(),
+              escapeHtml(producto.getNombre()),
+              producto.getPrecio().toPlainString(),
               producto.getStock()
           );
         }
@@ -569,6 +694,9 @@ public class PedidoServlet extends HttpServlet {
             """);
       }
 
+      /*
+       * TABLA DE PEDIDOS
+       */
       out.println("""
           <h2>Pedidos registrados</h2>
 
@@ -599,12 +727,19 @@ public class PedidoServlet extends HttpServlet {
         out.printf(
             """
             <tr>
+
               <td>%d</td>
+
               <td>%s</td>
+
               <td>%s</td>
+
               <td>%d</td>
+
               <td>S/ %s</td>
+
               <td>%s</td>
+
               <td>
                 <div class="acciones">
 
@@ -612,8 +747,9 @@ public class PedidoServlet extends HttpServlet {
                     Editar
                   </a>
 
-                  <form method="post"
-                        onsubmit="return confirm('¿Está seguro de eliminar el pedido #%d?');">
+                  <form
+                    method="post"
+                    onsubmit="return confirm('¿Está seguro de eliminar el pedido #%d?');">
 
                     <input
                       type="hidden"
@@ -633,23 +769,30 @@ public class PedidoServlet extends HttpServlet {
 
                 </div>
               </td>
+
             </tr>
             """,
+
             pedido.getId(),
+
             escapeHtml(
                 pedido.getCliente()
             ),
+
             escapeHtml(
-                pedido.getProducto()
-                    .getNombre()
+                pedido.getProducto().getNombre()
             ),
+
             pedido.getCantidad(),
-            pedido.getTotal()
-                .toPlainString(),
-            pedido.getFecha()
-                .format(formatter),
+
+            pedido.getTotal().toPlainString(),
+
+            pedido.getFecha().format(formatter),
+
             pedido.getId(),
+
             pedido.getId(),
+
             pedido.getId()
         );
       }
@@ -665,6 +808,7 @@ public class PedidoServlet extends HttpServlet {
 
       out.println("""
             </tbody>
+
           </table>
 
           </body>
@@ -674,7 +818,7 @@ public class PedidoServlet extends HttpServlet {
   }
 
   /**
-   * Escapa caracteres especiales para evitar vulnerabilidades XSS.
+   * Escapa caracteres especiales para HTML.
    */
   private String escapeHtml(String value) {
 
